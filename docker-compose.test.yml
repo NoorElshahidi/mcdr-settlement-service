@@ -1,0 +1,53 @@
+services:
+  mysql-test:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mcdr_test
+      MYSQL_USER: mcdr_test
+      MYSQL_PASSWORD: mcdr_test
+    ports: ['3307:3306']
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-umcdr_test', '-pmcdr_test']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  keycloak-test:
+    image: quay.io/keycloak/keycloak:26.3
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports: ['8180:8080']
+    volumes: ['./infra/keycloak:/opt/keycloak/data/import:ro']
+  minio-test:
+    image: minio/minio:RELEASE.2025-06-13T11-33-47Z
+    command: server /data --console-address ':9101'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin12345
+    ports: ['9100:9000', '9101:9001']
+    volumes: ['minio_test_data:/data']
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  minio-test-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio-test:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command: -c "mc alias set local http://minio-test:9000 minioadmin minioadmin12345 && mc mb --ignore-existing local/mcdr-test-documents && mc anonymous set none local/mcdr-test-documents"
+  clamav-test:
+    image: clamav/clamav:1.4.6-debian13-slim
+    ports: ['3311:3310']
+    healthcheck:
+      test: ['CMD-SHELL', 'clamdscan --ping 1 2>/dev/null | grep -q PONG']
+      interval: 10s
+      timeout: 10s
+      retries: 30
+volumes:
+  minio_test_data:

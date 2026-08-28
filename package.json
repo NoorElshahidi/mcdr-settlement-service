@@ -1,0 +1,112 @@
+{
+  "name": "mcdr-settlement-service",
+  "version": "0.1.0",
+  "private": true,
+  "overrides": {
+    "postcss": "8.5.26",
+    "next": {
+      "postcss": "8.5.26"
+    }
+  },
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "nest build && npm run build:web",
+    "build:api": "nest build",
+    "build:web": "npm --workspace @mcdr/web run build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/src/main.js",
+    "start:web": "npm --workspace @mcdr/web run start",
+    "format": "prettier --write \"{src,test,apps/web}/**/*.{ts,tsx}\" \"apps/web/**/*.d.ts\"",
+    "format:check": "prettier --check \"{src,test,apps/web}/**/*.{ts,tsx}\" \"apps/web/**/*.d.ts\"",
+    "lint": "eslint \"{src,test,apps/web}/**/*.{ts,tsx}\"",
+    "test": "jest",
+    "test:cov": "jest --coverage",
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:integration": "jest --config ./test/jest-integration.json",
+    "test:frontend": "vitest run",
+    "test:browser": "playwright test",
+    "openapi:types": "openapi-typescript docs/openapi.json -o apps/web/app/api.generated.ts && prettier --write apps/web/app/api.generated.ts",
+    "openapi:check": "npm run openapi:types && node -e \"JSON.parse(require('fs').readFileSync('docs/openapi.json','utf8'));\" && git diff --exit-code -- apps/web/app/api.generated.ts",
+    "typeorm": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d src/data-source.ts",
+    "migration:run": "npm run typeorm -- migration:run",
+    "migration:revert": "npm run typeorm -- migration:revert"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1119.0",
+    "@emnapi/core": "1.11.3",
+    "@emnapi/runtime": "1.11.3",
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.0.1",
+    "@nestjs/swagger": "^11.2.0",
+    "@nestjs/terminus": "^11.0.0",
+    "@nestjs/throttler": "^6.4.0",
+    "@nestjs/typeorm": "^11.0.0",
+    "@nestjs/websockets": "11.2.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "helmet": "^8.1.0",
+    "joi": "^18.0.1",
+    "jose": "^6.0.10",
+    "multer": "^2.0.2",
+    "mysql2": "^3.14.3",
+    "nestjs-pino": "^4.4.0",
+    "pino-http": "^10.5.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.1",
+    "typeorm": "^0.3.27"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@nestjs/testing": "^11.0.1",
+    "@playwright/test": "^1.62.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.0.0",
+    "@types/supertest": "^6.0.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "jest": "^30.0.0",
+    "jsdom": "^24.1.3",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.4.2",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.2.5",
+    "ts-loader": "^9.5.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^3.2.7"
+  },
+  "jest": {
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "testEnvironment": "node",
+    "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "global": {
+        "branches": 50,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    }
+  }
+}

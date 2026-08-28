@@ -1,0 +1,20 @@
+node_modules/
+dist/
+coverage/
+**/.next/
+*.log
+.env
+.env.test
+.DS_Store
+
+# Local contributor and planning documentation requested for this workspace.
+AGENTS.md
+CLAUDE.md
+docs/*
+!docs/openapi.json
+README.md
+SECURITY.md
+index.yaml
+test-results/
+playwright-report/
+.playwright-mcp/

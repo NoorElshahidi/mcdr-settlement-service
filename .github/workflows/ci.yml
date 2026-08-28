@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run build
+      - run: npm test -- --ci --coverage
+      - run: npm run test:frontend
+      - run: npm run openapi:check
+      - run: npm audit --audit-level=high
+
+  integration-and-e2e:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: docker compose -f docker-compose.test.yml up -d --wait mysql-test minio-test minio-test-init keycloak-test clamav-test
+      - run: npm run migration:run
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3307
+          DB_USER: mcdr_test
+          DB_PASSWORD: mcdr_test
+          DB_NAME: mcdr_test
+          KEYCLOAK_ISSUER: http://127.0.0.1:8180/realms/mcdr-test
+          KEYCLOAK_AUDIENCE: mcdr-e2e
+          MINIO_ENDPOINT: http://127.0.0.1:9100
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin12345
+          MINIO_BUCKET: mcdr-test-documents
+          CLAMAV_HOST: 127.0.0.1
+          CLAMAV_PORT: 3311
+      - run: npm run test:integration -- --ci
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3307
+          DB_USER: mcdr_test
+          DB_PASSWORD: mcdr_test
+          DB_NAME: mcdr_test
+      - run: npm run test:e2e -- --runInBand
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3307
+          DB_USER: mcdr_test
+          DB_PASSWORD: mcdr_test
+          DB_NAME: mcdr_test
+          KEYCLOAK_ISSUER: http://127.0.0.1:8180/realms/mcdr-test
+          KEYCLOAK_AUDIENCE: mcdr-e2e
+          MINIO_ENDPOINT: http://127.0.0.1:9100
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin12345
+          MINIO_BUCKET: mcdr-test-documents
+          CLAMAV_HOST: 127.0.0.1
+          CLAMAV_PORT: 3311
+      - name: Verify real Keycloak JWT and role guard
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3307
+          DB_USER: mcdr_test
+          DB_PASSWORD: mcdr_test
+          DB_NAME: mcdr_test
+          KEYCLOAK_ISSUER: http://127.0.0.1:8180/realms/mcdr-test
+          KEYCLOAK_AUDIENCE: mcdr-e2e
+          MINIO_ENDPOINT: http://127.0.0.1:9100
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin12345
+          MINIO_BUCKET: mcdr-test-documents
+          CLAMAV_HOST: 127.0.0.1
+          CLAMAV_PORT: 3311
+        run: |
+          npm run build:api
+          npm run start:prod &
+          API_PID=$!
+          trap 'kill "$API_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            curl --fail --silent http://127.0.0.1:3000/api/v1/health >/dev/null && break
+            sleep 2
+          done
+          node scripts/keycloak-auth-smoke.mjs
+      - if: always()
+        name: Upload service logs
+        run: |
+          docker compose -f docker-compose.test.yml logs > docker-compose-test.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-compose-test-logs
+          path: docker-compose-test.log
+          if-no-files-found: ignore
+      - if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
+  docker:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t mcdr-backend:${{ github.sha }} .
+      - run: docker build -f apps/web/Dockerfile -t mcdr-web:${{ github.sha }} .
+
+  browser:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
