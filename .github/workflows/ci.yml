@@ -34,7 +34,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: docker compose -f docker-compose.test.yml up -d --wait mysql-test minio-test minio-test-init keycloak-test clamav-test
+      - run: docker compose -f docker-compose.test.yml up -d --wait mysql-test minio-test keycloak-test clamav-test
+      # minio-test-init is a one-shot job (exits 0 on success): `--wait` above only
+      # tracks running/healthy services, so it must be brought up separately here,
+      # attached, so its own exit code gates the step instead of `--wait`'s.
+      - run: docker compose -f docker-compose.test.yml up minio-test-init
       - run: npm run migration:run
         env:
           NODE_ENV: test
