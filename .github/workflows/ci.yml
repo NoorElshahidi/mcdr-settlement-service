@@ -34,6 +34,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # migration:run and the "Verify real Keycloak JWT" step below both load
+      # compiled output (dist/src/migrations/*.js, dist/src/main.js); each CI
+      # job starts from a fresh checkout, so this job needs its own build —
+      # it isn't carried over from the `quality` job's separate runner.
+      - run: npm run build:api
       - run: docker compose -f docker-compose.test.yml up -d --wait mysql-test minio-test keycloak-test clamav-test
       # minio-test-init is a one-shot job (exits 0 on success): `--wait` above only
       # tracks running/healthy services, so it must be brought up separately here,
@@ -96,7 +101,6 @@ jobs:
           CLAMAV_HOST: 127.0.0.1
           CLAMAV_PORT: 3311
         run: |
-          npm run build:api
           npm run start:prod &
           API_PID=$!
           trap 'kill "$API_PID" 2>/dev/null || true' EXIT
